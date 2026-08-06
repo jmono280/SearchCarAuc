@@ -7,7 +7,8 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
-    PLAYWRIGHT_BROWSERS_PATH=/root/.cache/ms-playwright
+    PLAYWRIGHT_BROWSERS_PATH=/root/.cache/ms-playwright \
+    APP_PORT=8000
 
 # Instala dependencias de sistema necesarias para Playwright/Chromium
 # y curl para el healthcheck
@@ -54,12 +55,12 @@ COPY . .
 # Crea directorio para persistir la sesión de Playwright entre búsquedas
 RUN mkdir -p /app/data
 
-# Puerto expuesto por Uvicorn
+# Puerto expuesto por Uvicorn (se puede sobrescribir con APP_PORT)
 EXPOSE 8000
 
 # Healthcheck contra la raíz de FastAPI
 HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
-    CMD curl -f http://localhost:8000/ || exit 1
+    CMD sh -c "curl -f http://localhost:${APP_PORT:-8000}/ || exit 1"
 
-# Comando de arranque
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Comando de arranque: lee APP_PORT desde el entorno
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${APP_PORT:-8000}"]

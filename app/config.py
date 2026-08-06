@@ -23,6 +23,8 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    # Puerto interno en el que escucha Uvicorn/FastAPI.
+    app_port: int = 8000
     # Timeout en segundos para las peticiones de scraping.
     request_timeout: float = 20.0
     # true = usa Playwright directamente sin intentar httpx primero.
