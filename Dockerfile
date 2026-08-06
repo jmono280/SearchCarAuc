@@ -1,6 +1,9 @@
 # Etapa base ligera con Python 3.12
 FROM python:3.12-slim
 
+# Puerto configurable en build time (default 8000)
+ARG APP_PORT=8000
+
 WORKDIR /app
 
 # Evita prompts de apt y reduce capas
@@ -8,7 +11,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PLAYWRIGHT_BROWSERS_PATH=/root/.cache/ms-playwright \
-    APP_PORT=8000
+    APP_PORT=${APP_PORT}
 
 # Instala dependencias de sistema necesarias para Playwright/Chromium
 # y curl para el healthcheck
@@ -56,7 +59,7 @@ COPY . .
 RUN mkdir -p /app/data
 
 # Puerto expuesto por Uvicorn (se puede sobrescribir con APP_PORT)
-EXPOSE 8000
+EXPOSE ${APP_PORT}
 
 # Healthcheck contra la raíz de FastAPI
 HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \

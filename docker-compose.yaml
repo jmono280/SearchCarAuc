@@ -5,6 +5,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        APP_PORT: ${APP_PORT:-8000}
     container_name: car-scraper
     expose:
       - "${APP_PORT:-8000}"
