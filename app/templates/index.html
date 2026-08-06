@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Buscador de Vehículos</title>
+  <style>
+    :root {
+      --bg: #0f172a; --card: #1e293b; --border: #334155;
+      --text: #e2e8f0; --muted: #94a3b8; --accent: #38bdf8; --accent-dark: #0ea5e9;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: var(--bg); color: var(--text); padding: 1rem;
+    }
+    @media (min-width: 768px) {
+      body { padding: 1.5rem; }
+    }
+    h1 { margin: 0 0 1rem; font-size: 1.4rem; }
+    @media (min-width: 768px) {
+      h1 { font-size: 1.6rem; }
+    }
+
+    .card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 1rem; margin-bottom: 1rem;
+    }
+    @media (min-width: 768px) {
+      .card { padding: 1.25rem; }
+    }
+
+    form { display: grid; gap: .75rem; grid-template-columns: 1fr; }
+    @media (min-width: 640px) {
+      form { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (min-width: 1024px) {
+      form { grid-template-columns: repeat(4, 1fr); }
+    }
+
+    .field { display: flex; flex-direction: column; }
+    label { font-size: .78rem; color: var(--muted); margin-bottom: .25rem; }
+    input, select {
+      width: 100%; padding: .55rem .65rem; border-radius: 6px;
+      border: 1px solid var(--border); background: #0b1220; color: var(--text); font-size: .95rem;
+    }
+    input:focus, select:focus { outline: 2px solid var(--accent-dark); outline-offset: 1px; }
+
+    .actions { display: flex; align-items: flex-end; }
+    button {
+      padding: .6rem 1.25rem; border: none; border-radius: 6px; cursor: pointer;
+      background: var(--accent-dark); color: #04121c; font-weight: 600; font-size: .95rem;
+      width: 100%; height: 100%; min-height: 36px;
+    }
+    button:hover { background: var(--accent); }
+    button:disabled { opacity: .6; cursor: not-allowed; }
+
+    #status { margin: .75rem 0; color: var(--muted); }
+    .errors { color: #fca5a5; font-size: .85rem; margin-bottom: .75rem; }
+
+    table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+    th, td { padding: .6rem .7rem; text-align: left; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    th { color: var(--muted); font-weight: 600; position: sticky; top: 0; background: var(--card); }
+    tr:hover td { background: #263449; }
+    td img { width: 80px; height: 60px; object-fit: cover; border-radius: 6px; background: #0b1220; }
+    a.detail { color: var(--accent); text-decoration: none; }
+    a.detail:hover { text-decoration: underline; }
+    .price { font-weight: 700; color: #86efac; }
+    .price.none { color: var(--muted); font-weight: 400; }
+    .table-wrap { overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <h1>Buscador de Vehículos (IAAI)</h1>
+
+  <div class="card">
+    <form id="search-form">
+      <div class="field">
+        <label for="marca">Marca *</label>
+        <input id="marca" name="marca" placeholder="Toyota" required />
+      </div>
+      <div class="field">
+        <label for="modelo">Modelo</label>
+        <input id="modelo" name="modelo" placeholder="Corolla" />
+      </div>
+      <div class="field">
+        <label for="anio">Año exacto</label>
+        <input id="anio" name="anio" type="number" min="1900" max="2100" placeholder="2015" />
+      </div>
+      <div class="field">
+        <label for="tipo">Tipo</label>
+        <select id="tipo" name="tipo">
+          <option value="">Todos</option>
+          <option value="Cars">Autos</option>
+          <option value="SUVs">SUVs</option>
+          <option value="PickupTrucks">Pickups</option>
+          <option value="Motorcycles">Motocicletas</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="anio_min">Año mínimo</label>
+        <input id="anio_min" name="anio_min" type="number" min="1900" max="2100" placeholder="2010" />
+      </div>
+      <div class="field">
+        <label for="anio_max">Año máximo</label>
+        <input id="anio_max" name="anio_max" type="number" min="1900" max="2100" placeholder="2018" />
+      </div>
+      <div class="field">
+        <label for="precio_min">Precio mín. USD</label>
+        <input id="precio_min" name="precio_min" type="number" min="0" placeholder="0" />
+      </div>
+      <div class="field">
+        <label for="precio_max">Precio máx. USD</label>
+        <input id="precio_max" name="precio_max" type="number" min="0" placeholder="15000" />
+      </div>
+
+      <div class="field">
+        <label for="zip">Código postal (ZIP)</label>
+        <input id="zip" name="zip" placeholder="33101" title="ZIP de EE.UU. (IAAI). Debe enviarse junto con el radio." />
+      </div>
+      <div class="field">
+        <label for="radio_millas">Radio (millas)</label>
+        <select id="radio_millas" name="radio_millas">
+          <option value="">—</option>
+          <option value="25">25 mi</option>
+          <option value="50">50 mi</option>
+          <option value="100">100 mi</option>
+          <option value="200">200 mi</option>
+          <option value="500">500 mi</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="page_size">Resultados / página</label>
+        <select id="page_size" name="page_size">
+          <option value="10">10</option>
+          <option value="25">25</option>
+          <option value="50" selected>50</option>
+          <option value="100">100</option>
+        </select>
+      </div>
+
+      <div class="actions">
+        <button type="submit" id="submit-btn">Buscar</button>
+      </div>
+    </form>
+  </div>
+
+  <div id="status"></div>
+  <div id="errors" class="errors"></div>
+
+  <div class="card table-wrap" id="results-card" style="display:none">
+    <table>
+      <thead>
+        <tr>
+          <th>Imagen</th><th>Vehículo</th><th>Año</th><th>Precio</th>
+          <th>Odómetro</th><th>Motor</th><th>VIN</th><th>Fuente</th><th></th>
+        </tr>
+      </thead>
+      <tbody id="results-body"></tbody>
+    </table>
+  </div>
+
+  <script>
+    const form = document.getElementById('search-form');
+    const statusEl = document.getElementById('status');
+    const errorsEl = document.getElementById('errors');
+    const resultsCard = document.getElementById('results-card');
+    const resultsBody = document.getElementById('results-body');
+    const submitBtn = document.getElementById('submit-btn');
+
+    function numOrNull(id) {
+      const el = document.getElementById(id);
+      const v = el.value.trim();
+      return v === '' ? null : Number(v);
+    }
+
+    function strOrNull(id) {
+      const v = document.getElementById(id).value.trim();
+      return v || null;
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const payload = {
+        marca: document.getElementById('marca').value.trim(),
+        modelo: strOrNull('modelo'),
+        anio: numOrNull('anio'),
+        tipo: strOrNull('tipo'),
+        anio_min: numOrNull('anio_min'),
+        anio_max: numOrNull('anio_max'),
+        precio_min: numOrNull('precio_min'),
+        precio_max: numOrNull('precio_max'),
+        zip: strOrNull('zip'),
+        radio_millas: numOrNull('radio_millas'),
+        page_size: numOrNull('page_size') || 50,
+      };
+
+      submitBtn.disabled = true;
+      statusEl.textContent = 'Buscando...';
+      errorsEl.textContent = '';
+      resultsBody.innerHTML = '';
+      resultsCard.style.display = 'none';
+
+      try {
+        const res = await fetch('/api/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+          const text = await res.text().catch(() => '');
+          throw new Error('Error del servidor: ' + res.status + ' ' + text);
+        }
+        const data = await res.json();
+        renderResults(data);
+      } catch (err) {
+        statusEl.textContent = '';
+        errorsEl.textContent = 'Error: ' + err.message;
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+
+    function renderResults(data) {
+      statusEl.textContent = `${data.total} resultado(s) encontrados.`;
+
+      if (data.errores && data.errores.length) {
+        errorsEl.textContent = 'Avisos: ' + data.errores.join(' | ');
+      }
+
+      if (!data.items || !data.items.length) {
+        resultsCard.style.display = 'none';
+        return;
+      }
+
+      for (const v of data.items) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${v.imagen_url ? `<img src="${v.imagen_url}" alt="" loading="lazy" />` : ''}</td>
+          <td>${escapeHtml(v.titulo || '')}</td>
+          <td>${v.anio ?? ''}</td>
+          <td class="${v.precio ? 'price' : 'price none'}">${v.precio ? '$' + v.precio.toLocaleString() + ' ' + (v.moneda || '') : 'N/D'}</td>
+          <td>${escapeHtml(v.odometro || '')}</td>
+          <td>${escapeHtml(v.motor || '')}</td>
+          <td>${escapeHtml(v.vin || '')}</td>
+          <td>${escapeHtml(v.fuente || '')}</td>
+          <td>${v.detalle_url ? `<a class="detail" href="${v.detalle_url}" target="_blank" rel="noopener">Ver</a>` : ''}</td>
+        `;
+        resultsBody.appendChild(tr);
+      }
+      resultsCard.style.display = 'block';
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>

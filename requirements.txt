@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+httpx
+beautifulsoup4
+lxml
+pydantic
+pydantic-settings
+python-dotenv
+mcp
+playwright
