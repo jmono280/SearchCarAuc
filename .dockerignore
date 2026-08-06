@@ -1,0 +1,55 @@
+# Entornos virtuales
+.venv/
+venv/
+env/
+ENV/
+
+# Caché de Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Distribución / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Configuración local / secretos
+.env
+.env.*
+!.env.example
+.opencode/
+AGENTS.md
+
+# Herramientas de desarrollo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Editores / IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Git
+.git/
+.gitignore
+
+# Playwright local
+.ms-playwright/

@@ -1,0 +1,58 @@
+version: "3.8"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: car-scraper
+    ports:
+      - "8000:8000"
+    environment:
+      # Configuración general
+      - request_timeout=60
+      - FORCE_PLAYWRIGHT=true
+
+      # Proveedor: IAAI
+      - IAAI_URL=${IAAI_URL}
+      - IAAI_NAME=${IAAI_NAME:-IAAI}
+      - IAAI_USERNAME=${IAAI_USERNAME:-${user_ai_ai}}
+      - IAAI_PASSWORD=${IAAI_PASSWORD:-${psw}}
+      # Compatibilidad con nombres antiguos
+      - user_ai_ai=${user_ai_ai}
+      - psw=${psw}
+
+      # Proveedor: Manheim
+      - MANHEIM_ENABLED=${MANHEIM_ENABLED:-false}
+      - MANHEIM_URL=${MANHEIM_URL}
+      - MANHEIM_NAME=${MANHEIM_NAME:-Manheim}
+      - MANHEIM_USERNAME=${MANHEIM_USERNAME}
+      - MANHEIM_PASSWORD=${MANHEIM_PASSWORD}
+
+      # Proveedor: ACV Auctions
+      - ACV_ENABLED=${ACV_ENABLED:-false}
+      - ACV_URL=${ACV_URL}
+      - ACV_NAME=${ACV_NAME:-ACV}
+      - ACV_USERNAME=${ACV_USERNAME}
+      - ACV_PASSWORD=${ACV_PASSWORD}
+
+      # Proveedor: OpenLane
+      - OPENLANE_ENABLED=${OPENLANE_ENABLED:-false}
+      - OPENLANE_URL=${OPENLANE_URL}
+      - OPENLANE_NAME=${OPENLANE_NAME:-OpenLane}
+      - OPENLANE_USERNAME=${OPENLANE_USERNAME}
+      - OPENLANE_PASSWORD=${OPENLANE_PASSWORD}
+
+    volumes:
+      # Persiste las sesiones de Playwright entre reinicios del contenedor.
+      - car-scraper-data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+
+volumes:
+  car-scraper-data:

@@ -91,12 +91,22 @@ def _format_results(results: SearchResults) -> str:
             details.append(f"**Precio:** ${v.precio:,.0f} {v.moneda or 'USD'}")
         else:
             details.append("**Precio:** no disponible (Buy Now)")
+        if v.acv is not None:
+            details.append(f"**ACV:** ${v.acv:,.0f} {v.moneda or 'USD'}")
         if v.odometro:
             details.append(f"**Odómetro:** {v.odometro}")
         if v.motor:
             details.append(f"**Motor:** {v.motor}")
         if v.vin:
             details.append(f"**VIN:** {v.vin}")
+        if v.dano_primario:
+            details.append(f"**Daño primario:** {v.dano_primario}")
+        if v.dano_secundario:
+            details.append(f"**Daño secundario:** {v.dano_secundario}")
+        if v.estado:
+            details.append(f"**Estado:** {v.estado}")
+        if v.subasta:
+            details.append(f"**Subasta:** {v.subasta}")
         if v.sucursal:
             details.append(f"**Sucursal:** {v.sucursal}")
         if v.detalle_url:

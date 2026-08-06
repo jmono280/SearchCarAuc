@@ -14,16 +14,20 @@ class Vehicle(BaseModel):
     modelo: str | None = Field(default=None, description="Modelo")
 
     precio: float | None = Field(default=None, description="Precio Buy Now si está disponible")
+    acv: float | None = Field(default=None, description="Actual Cash Value (ACV) si está disponible")
     moneda: str | None = Field(default="USD", description="Moneda del precio")
 
     odometro: str | None = Field(default=None, description="Odómetro, ej. '173,064 mi'")
     vin: str | None = Field(default=None, description="VIN (puede venir enmascarado)")
     motor: str | None = Field(default=None, description="Descripción del motor")
     dano_primario: str | None = Field(default=None, description="Daño primario")
+    dano_secundario: str | None = Field(default=None, description="Daño secundario")
     tipo: str | None = Field(default=None, description="Tipo de vehículo")
     sucursal: str | None = Field(default=None, description="Sucursal/branch de la subasta")
+    estado: str | None = Field(default=None, description="Estado de la subasta / venta")
+    subasta: str | None = Field(default=None, description="Nombre o código de la subasta")
 
     imagen_url: str | None = Field(default=None, description="URL de la imagen principal")
     detalle_url: str | None = Field(default=None, description="URL a la página de detalle")
 
-    fuente: str = Field(default="IAAI", description="Sitio de origen del dato")
+    fuente: str = Field(default="Source", description="Sitio de origen del dato")

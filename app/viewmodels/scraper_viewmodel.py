@@ -4,13 +4,48 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from typing import Any
 
+from app.config import settings
 from app.models.results import SearchResults
 from app.models.search import SearchQuery
 from app.scrapers.base_scraper import BaseScraper
-from app.scrapers.iaai_scraper import IAAIScraper
+from app.scrapers.providers.acv import ACVScraper
+from app.scrapers.providers.iaai import IAAIScraper
+from app.scrapers.providers.manheim import ManheimScraper
+from app.scrapers.providers.openlane import OpenLaneScraper
 
 logger = logging.getLogger(__name__)
+
+# Registro de scrapers disponibles por nombre clave.
+_PROVIDER_REGISTRY: dict[str, type[BaseScraper]] = {
+    "iaai": IAAIScraper,
+    "manheim": ManheimScraper,
+    "acv": ACVScraper,
+    "openlane": OpenLaneScraper,
+}
+
+
+def build_scrapers() -> list[BaseScraper]:
+    """Construye una lista de scrapers habilitados según la configuración."""
+    scrapers: list[BaseScraper] = []
+    for provider_key in settings.enabled_providers:
+        scraper_cls = _PROVIDER_REGISTRY.get(provider_key)
+        if not scraper_cls:
+            logger.warning("Proveedor desconocido: %s", provider_key)
+            continue
+
+        provider_cfg = settings.provider_settings(provider_key)
+        if not provider_cfg.get("url") and provider_key != "iaai":
+            logger.warning(
+                "[%s] Proveedor habilitado pero sin URL configurada; se omite.",
+                provider_key,
+            )
+            continue
+
+        scrapers.append(scraper_cls(provider_cfg))
+
+    return scrapers
 
 
 class ScraperViewModel:
@@ -21,8 +56,7 @@ class ScraperViewModel:
     """
 
     def __init__(self, scrapers: list[BaseScraper] | None = None) -> None:
-        # Por ahora solo IAAI; la arquitectura permite agregar más scrapers.
-        self.scrapers: list[BaseScraper] = scrapers or [IAAIScraper()]
+        self.scrapers: list[BaseScraper] = scrapers or build_scrapers()
         self.last_query: SearchQuery | None = None
         self.last_results: SearchResults | None = None
 
@@ -30,6 +64,10 @@ class ScraperViewModel:
         """Ejecuta la búsqueda en todos los scrapers de forma concurrente."""
         self.last_query = query
         results = SearchResults()
+
+        if not self.scrapers:
+            results.add_error("No hay scrapers habilitados.")
+            return results
 
         tasks = [scraper.scratch(query) for scraper in self.scrapers]
         outcomes = await asyncio.gather(*tasks, return_exceptions=True)
