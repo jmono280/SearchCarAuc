@@ -40,15 +40,19 @@ class SearchQuery(BaseModel):
         le=2100,
         description="Año máximo",
     )
+    buy_now: bool = Field(
+        default=False,
+        description="True = filtrar solo vehículos con precio Buy Now/Comprar ahora",
+    )
     precio_min: float | None = Field(
         default=None,
         ge=0,
-        description="Precio mínimo (USD)",
+        description="Precio mínimo (USD). Solo aplica cuando buy_now=True",
     )
     precio_max: float | None = Field(
         default=None,
         ge=0,
-        description="Precio máximo (USD)",
+        description="Precio máximo (USD). Solo aplica cuando buy_now=True",
     )
     zip: str | None = Field(
         default=None,

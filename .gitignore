@@ -49,5 +49,8 @@ Thumbs.db
 *.log
 logs/
 
+# Datos locales (sesiones Playwright, filtros guardados, debug)
+data/
+
 # Playwright
 .ms-playwright/

@@ -68,10 +68,81 @@
     .price { font-weight: 700; color: #86efac; }
     .price.none { color: var(--muted); font-weight: 400; }
     .table-wrap { overflow-x: auto; }
+
+    .filters-bar {
+      display: grid;
+      gap: .75rem;
+      grid-template-columns: 1fr;
+      align-items: end;
+    }
+    @media (min-width: 640px) {
+      .filters-bar { grid-template-columns: 1fr auto auto auto auto; }
+    }
+    .filters-bar .field { min-width: 0; }
+    .filters-bar button {
+      height: auto;
+      min-height: 36px;
+      white-space: nowrap;
+    }
+    .filters-bar button.secondary {
+      background: transparent;
+      border: 1px solid var(--accent-dark);
+      color: var(--accent);
+    }
+    .filters-bar button.secondary:hover { background: rgba(56, 189, 248, .1); }
+    .filters-bar button.danger {
+      background: transparent;
+      border: 1px solid #ef4444;
+      color: #fca5a5;
+    }
+    .filters-bar button.danger:hover { background: rgba(239, 68, 68, .1); }
+
+    .checkbox-field {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      min-height: 36px;
+    }
+    .checkbox-field input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--accent-dark);
+      cursor: pointer;
+    }
+    .checkbox-field label {
+      margin: 0;
+      cursor: pointer;
+      color: var(--text);
+      font-size: .95rem;
+    }
+    input:disabled, select:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+    }
   </style>
 </head>
 <body>
   <h1>Buscador de Vehículos (IAAI)</h1>
+
+  <div class="card">
+    <h2 style="font-size: 1rem; margin: 0 0 .75rem; color: var(--muted);">Filtros guardados</h2>
+    <div class="filters-bar">
+      <div class="field">
+        <label for="filter-name">Nombre del filtro</label>
+        <input id="filter-name" placeholder="Ej: Honda Civic 2015-2016" />
+      </div>
+      <button type="button" id="save-filter-btn">Guardar filtros</button>
+      <div class="field">
+        <label for="saved-filters">Cargar / ejecutar</label>
+        <select id="saved-filters">
+          <option value="">— Seleccionar —</option>
+        </select>
+      </div>
+      <button type="button" id="load-filter-btn" class="secondary">Cargar</button>
+      <button type="button" id="run-filter-btn" class="secondary">Ejecutar</button>
+      <button type="button" id="delete-filter-btn" class="danger">Eliminar</button>
+    </div>
+  </div>
 
   <div class="card">
     <form id="search-form">
@@ -106,13 +177,17 @@
         <label for="anio_max">Año máximo</label>
         <input id="anio_max" name="anio_max" type="number" min="1900" max="2100" placeholder="2018" />
       </div>
+      <div class="field checkbox-field">
+        <input id="buy_now" name="buy_now" type="checkbox" />
+        <label for="buy_now">Comprar ahora (Buy Now)</label>
+      </div>
       <div class="field">
         <label for="precio_min">Precio mín. USD</label>
-        <input id="precio_min" name="precio_min" type="number" min="0" placeholder="0" />
+        <input id="precio_min" name="precio_min" type="number" min="0" placeholder="0" disabled />
       </div>
       <div class="field">
         <label for="precio_max">Precio máx. USD</label>
-        <input id="precio_max" name="precio_max" type="number" min="0" placeholder="15000" />
+        <input id="precio_max" name="precio_max" type="number" min="0" placeholder="15000" disabled />
       </div>
 
       <div class="field">
@@ -168,6 +243,16 @@
     const resultsCard = document.getElementById('results-card');
     const resultsBody = document.getElementById('results-body');
     const submitBtn = document.getElementById('submit-btn');
+    const filterNameInput = document.getElementById('filter-name');
+    const savedFiltersSelect = document.getElementById('saved-filters');
+    const saveFilterBtn = document.getElementById('save-filter-btn');
+    const loadFilterBtn = document.getElementById('load-filter-btn');
+    const runFilterBtn = document.getElementById('run-filter-btn');
+    const deleteFilterBtn = document.getElementById('delete-filter-btn');
+    const buyNowCheckbox = document.getElementById('buy_now');
+    const precioMinInput = document.getElementById('precio_min');
+    const precioMaxInput = document.getElementById('precio_max');
+    let filtersCache = [];
 
     function numOrNull(id) {
       const el = document.getElementById(id);
@@ -180,23 +265,81 @@
       return v || null;
     }
 
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
+    function updatePriceFields() {
+      const enabled = buyNowCheckbox.checked;
+      precioMinInput.disabled = !enabled;
+      precioMaxInput.disabled = !enabled;
+      if (!enabled) {
+        precioMinInput.value = '';
+        precioMaxInput.value = '';
+      }
+    }
 
-      const payload = {
+    function buildPayload() {
+      const buyNow = buyNowCheckbox.checked;
+      return {
         marca: document.getElementById('marca').value.trim(),
         modelo: strOrNull('modelo'),
         anio: numOrNull('anio'),
         tipo: strOrNull('tipo'),
         anio_min: numOrNull('anio_min'),
         anio_max: numOrNull('anio_max'),
-        precio_min: numOrNull('precio_min'),
-        precio_max: numOrNull('precio_max'),
+        buy_now: buyNow,
+        precio_min: buyNow ? numOrNull('precio_min') : null,
+        precio_max: buyNow ? numOrNull('precio_max') : null,
         zip: strOrNull('zip'),
         radio_millas: numOrNull('radio_millas'),
         page_size: numOrNull('page_size') || 50,
       };
+    }
 
+    function setField(id, value) {
+      const el = document.getElementById(id);
+      if (el) el.value = value ?? '';
+    }
+
+    async function loadFilters() {
+      try {
+        const res = await fetch('/api/filtros');
+        if (!res.ok) throw new Error('Error cargando filtros: ' + res.status);
+        filtersCache = await res.json();
+        savedFiltersSelect.innerHTML = '<option value="">— Seleccionar —</option>';
+        for (const f of filtersCache) {
+          const opt = document.createElement('option');
+          opt.value = f.id;
+          opt.textContent = f.nombre;
+          savedFiltersSelect.appendChild(opt);
+        }
+      } catch (err) {
+        errorsEl.textContent = err.message;
+      }
+    }
+
+    function getSelectedFilter() {
+      const id = savedFiltersSelect.value;
+      return filtersCache.find(f => f.id === id);
+    }
+
+    function loadFilterIntoForm(filt) {
+      if (!filt) return;
+      const q = filt.query;
+      setField('marca', q.marca);
+      setField('modelo', q.modelo);
+      setField('anio', q.anio);
+      setField('tipo', q.tipo);
+      setField('anio_min', q.anio_min);
+      setField('anio_max', q.anio_max);
+      buyNowCheckbox.checked = Boolean(q.buy_now);
+      updatePriceFields();
+      setField('precio_min', q.precio_min);
+      setField('precio_max', q.precio_max);
+      setField('zip', q.zip);
+      setField('radio_millas', q.radio_millas);
+      setField('page_size', q.page_size);
+      filterNameInput.value = filt.nombre;
+    }
+
+    async function doSearch(payload) {
       submitBtn.disabled = true;
       statusEl.textContent = 'Buscando...';
       errorsEl.textContent = '';
@@ -221,7 +364,81 @@
       } finally {
         submitBtn.disabled = false;
       }
+    }
+
+    saveFilterBtn.addEventListener('click', async () => {
+      const nombre = filterNameInput.value.trim();
+      if (!nombre) {
+        errorsEl.textContent = 'Escribe un nombre para guardar el filtro.';
+        return;
+      }
+      const payload = buildPayload();
+      if (!payload.marca) {
+        errorsEl.textContent = 'La marca es obligatoria para guardar un filtro.';
+        return;
+      }
+      try {
+        const res = await fetch('/api/filtros', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nombre, query: payload }),
+        });
+        if (!res.ok) {
+          const text = await res.text().catch(() => '');
+          throw new Error('Error del servidor: ' + res.status + ' ' + text);
+        }
+        await loadFilters();
+        statusEl.textContent = 'Filtro guardado.';
+      } catch (err) {
+        errorsEl.textContent = 'Error: ' + err.message;
+      }
     });
+
+    loadFilterBtn.addEventListener('click', () => {
+      const filt = getSelectedFilter();
+      if (!filt) {
+        errorsEl.textContent = 'Selecciona un filtro de la lista.';
+        return;
+      }
+      loadFilterIntoForm(filt);
+      statusEl.textContent = `Filtro cargado: ${filt.nombre}`;
+    });
+
+    runFilterBtn.addEventListener('click', async () => {
+      const filt = getSelectedFilter();
+      if (!filt) {
+        errorsEl.textContent = 'Selecciona un filtro de la lista.';
+        return;
+      }
+      await doSearch(filt.query);
+    });
+
+    deleteFilterBtn.addEventListener('click', async () => {
+      const filt = getSelectedFilter();
+      if (!filt) {
+        errorsEl.textContent = 'Selecciona un filtro de la lista.';
+        return;
+      }
+      if (!confirm(`Eliminar filtro "${filt.nombre}"?`)) return;
+      try {
+        const res = await fetch(`/api/filtros/${filt.id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Error eliminando filtro: ' + res.status);
+        await loadFilters();
+        statusEl.textContent = 'Filtro eliminado.';
+      } catch (err) {
+        errorsEl.textContent = 'Error: ' + err.message;
+      }
+    });
+
+    buyNowCheckbox.addEventListener('change', updatePriceFields);
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await doSearch(buildPayload());
+    });
+
+    updatePriceFields();
+    loadFilters();
 
     function renderResults(data) {
       statusEl.textContent = `${data.total} resultado(s) encontrados.`;

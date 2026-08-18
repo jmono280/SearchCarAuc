@@ -13,7 +13,9 @@ from mcp.server import Server
 from mcp.types import CallToolResult, ListToolsResult, TextContent, Tool
 
 from app.models.results import SearchResults
+from app.models.saved_search import SavedSearchCreate
 from app.models.search import SearchQuery
+from app.repositories.saved_search_repository import SavedSearchRepository
 from app.viewmodels.scraper_viewmodel import ScraperViewModel
 
 logger = logging.getLogger(__name__)
@@ -58,6 +60,11 @@ _SEARCH_VEHICLE_SCHEMA: dict[str, Any] = {
             "type": "integer",
             "description": "Radio de búsqueda en millas desde el ZIP.",
         },
+        "buy_now": {
+            "type": "boolean",
+            "description": "True para filtrar solo vehículos con precio Buy Now/Comprar ahora y habilitar precio_min/precio_max.",
+            "default": False,
+        },
         "page_size": {
             "type": "integer",
             "description": "Cantidad de resultados por página (máximo 100).",
@@ -65,6 +72,40 @@ _SEARCH_VEHICLE_SCHEMA: dict[str, Any] = {
         },
     },
     "required": ["marca"],
+}
+
+_SAVE_FILTER_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "nombre": {
+            "type": "string",
+            "description": "Nombre descriptivo para guardar este filtro. Ej: Honda Civic 2015-2016.",
+        },
+        **_SEARCH_VEHICLE_SCHEMA["properties"],
+    },
+    "required": ["nombre", "marca"],
+}
+
+_RUN_FILTER_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "filter_id": {
+            "type": "string",
+            "description": "ID del filtro guardado a ejecutar.",
+        },
+    },
+    "required": ["filter_id"],
+}
+
+_DELETE_FILTER_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "filter_id": {
+            "type": "string",
+            "description": "ID del filtro guardado a eliminar.",
+        },
+    },
+    "required": ["filter_id"],
 }
 
 
@@ -133,28 +174,39 @@ async def _handle_list_tools(ctx=None, params=None) -> ListToolsResult:
                     "imagen, precio, odómetro, motor, VIN y enlace al detalle."
                 ),
                 inputSchema=_SEARCH_VEHICLE_SCHEMA,
-            )
+            ),
+            Tool(
+                name="list_filters",
+                description="Lista los filtros de búsqueda guardados por el usuario.",
+                inputSchema={"type": "object", "properties": {}},
+            ),
+            Tool(
+                name="save_filter",
+                description=(
+                    "Guarda un filtro de búsqueda con un nombre para reutilizarlo "
+                    "posteriormente. NO guarda resultados, solo los criterios."
+                ),
+                inputSchema=_SAVE_FILTER_SCHEMA,
+            ),
+            Tool(
+                name="run_filter",
+                description=(
+                    "Ejecuta un filtro de búsqueda guardado y devuelve resultados "
+                    "frescos de los proveedores habilitados."
+                ),
+                inputSchema=_RUN_FILTER_SCHEMA,
+            ),
+            Tool(
+                name="delete_filter",
+                description="Elimina un filtro de búsqueda guardado por su ID.",
+                inputSchema=_DELETE_FILTER_SCHEMA,
+            ),
         ]
     )
 
 
-async def _handle_call_tool(ctx=None, params=None) -> CallToolResult:
-    """Ejecuta la herramienta solicitada por el cliente MCP."""
-    if params is None:
-        params = {}
-    if hasattr(params, "name"):
-        name = params.name
-        arguments = params.arguments or {}
-    else:
-        name = params.get("name")
-        arguments = params.get("arguments") or {}
-
-    if name != "search_vehicles":
-        return CallToolResult(
-            content=[TextContent(text=f"Herramienta desconocida: {name}")],
-            is_error=True,
-        )
-
+async def _run_search(arguments: dict[str, Any]) -> CallToolResult:
+    """Ejecuta search_vehicles y devuelve los resultados formateados."""
     try:
         query = SearchQuery(**arguments)
     except Exception as exc:
@@ -175,6 +227,163 @@ async def _handle_call_tool(ctx=None, params=None) -> CallToolResult:
         )
 
     return CallToolResult(content=[TextContent(text=_format_results(results))])
+
+
+async def _list_filters() -> CallToolResult:
+    """Lista los filtros guardados."""
+    try:
+        filtros = await SavedSearchRepository.list_all()
+    except Exception as exc:
+        logger.exception("Error listando filtros via MCP")
+        return CallToolResult(
+            content=[TextContent(text=f"Error interno al listar filtros: {exc}")],
+            is_error=True,
+        )
+
+    if not filtros:
+        return CallToolResult(content=[TextContent(text="No hay filtros guardados.")])
+
+    lines = ["**Filtros guardados:**"]
+    for f in filtros:
+        q = f.query
+        resumen = f"{q.marca}"
+        if q.modelo:
+            resumen += f" {q.modelo}"
+        if q.anio_min is not None and q.anio_max is not None:
+            resumen += f" ({q.anio_min}-{q.anio_max})"
+        elif q.anio is not None:
+            resumen += f" ({q.anio})"
+        lines.append(f"- `{f.id}` — **{f.nombre}**: {resumen}")
+    return CallToolResult(content=[TextContent(text="\n".join(lines))])
+
+
+async def _save_filter(arguments: dict[str, Any]) -> CallToolResult:
+    """Guarda un filtro nuevo a partir de los criterios recibidos."""
+    args = dict(arguments)
+    nombre = args.pop("nombre", None)
+    if not nombre:
+        return CallToolResult(
+            content=[TextContent(text="El campo 'nombre' es requerido.")],
+            is_error=True,
+        )
+
+    try:
+        query = SearchQuery(**args)
+    except Exception as exc:
+        logger.warning("Parámetros inválidos en save_filter: %s", exc)
+        return CallToolResult(
+            content=[TextContent(text=f"Parámetros inválidos: {exc}")],
+            is_error=True,
+        )
+
+    try:
+        saved = await SavedSearchRepository.create(
+            SavedSearchCreate(nombre=nombre, query=query)
+        )
+    except Exception as exc:
+        logger.exception("Error guardando filtro via MCP")
+        return CallToolResult(
+            content=[TextContent(text=f"Error interno al guardar el filtro: {exc}")],
+            is_error=True,
+        )
+
+    return CallToolResult(
+        content=[TextContent(text=f"Filtro guardado: `{saved.id}` — {saved.nombre}")]
+    )
+
+
+async def _run_filter(arguments: dict[str, Any]) -> CallToolResult:
+    """Ejecuta un filtro guardado y devuelve resultados frescos."""
+    filter_id = arguments.get("filter_id")
+    if not filter_id:
+        return CallToolResult(
+            content=[TextContent(text="El campo 'filter_id' es requerido.")],
+            is_error=True,
+        )
+
+    try:
+        filt = await SavedSearchRepository.get(filter_id)
+    except Exception as exc:
+        logger.exception("Error obteniendo filtro via MCP")
+        return CallToolResult(
+            content=[TextContent(text=f"Error interno al obtener el filtro: {exc}")],
+            is_error=True,
+        )
+
+    if not filt:
+        return CallToolResult(
+            content=[TextContent(text=f"No se encontró el filtro `{filter_id}`.")],
+            is_error=True,
+        )
+
+    try:
+        viewmodel = ScraperViewModel()
+        results = await viewmodel.search(filt.query)
+    except Exception as exc:
+        logger.exception("Error ejecutando filtro guardado via MCP")
+        return CallToolResult(
+            content=[TextContent(text=f"Error interno al ejecutar el filtro: {exc}")],
+            is_error=True,
+        )
+
+    return CallToolResult(content=[TextContent(text=_format_results(results))])
+
+
+async def _delete_filter(arguments: dict[str, Any]) -> CallToolResult:
+    """Elimina un filtro guardado por su ID."""
+    filter_id = arguments.get("filter_id")
+    if not filter_id:
+        return CallToolResult(
+            content=[TextContent(text="El campo 'filter_id' es requerido.")],
+            is_error=True,
+        )
+
+    try:
+        deleted = await SavedSearchRepository.delete(filter_id)
+    except Exception as exc:
+        logger.exception("Error eliminando filtro via MCP")
+        return CallToolResult(
+            content=[TextContent(text=f"Error interno al eliminar el filtro: {exc}")],
+            is_error=True,
+        )
+
+    if not deleted:
+        return CallToolResult(
+            content=[TextContent(text=f"No se encontró el filtro `{filter_id}`.")],
+            is_error=True,
+        )
+
+    return CallToolResult(
+        content=[TextContent(text=f"Filtro `{filter_id}` eliminado correctamente.")]
+    )
+
+
+async def _handle_call_tool(ctx=None, params=None) -> CallToolResult:
+    """Ejecuta la herramienta solicitada por el cliente MCP."""
+    if params is None:
+        params = {}
+    if hasattr(params, "name"):
+        name = params.name
+        arguments = params.arguments or {}
+    else:
+        name = params.get("name")
+        arguments = params.get("arguments") or {}
+
+    if name == "search_vehicles":
+        return await _run_search(arguments)
+    if name == "list_filters":
+        return await _list_filters()
+    if name == "save_filter":
+        return await _save_filter(arguments)
+    if name == "run_filter":
+        return await _run_filter(arguments)
+    if name == "delete_filter":
+        return await _delete_filter(arguments)
+
+    return CallToolResult(
+        content=[TextContent(text=f"Herramienta desconocida: {name}")],
+        is_error=True,
+    )
 
 
 # Instancia pública del servidor MCP.

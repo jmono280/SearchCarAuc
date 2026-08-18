@@ -51,6 +51,8 @@ class ScraperBlockedError(RuntimeError):
 class IAAIScraper(BaseScraper):
     """Busca vehículos en IAAI vía el endpoint POST /Search."""
 
+    name = "IAAI"
+
     def __init__(self, provider_settings: dict[str, Any] | None = None) -> None:
         super().__init__(provider_settings)
         self.name = self.provider_settings.get("name", "IAAI")
@@ -130,7 +132,7 @@ class IAAIScraper(BaseScraper):
                 "To": str(anio_max),
             })
 
-        if query.precio_min is not None or query.precio_max is not None:
+        if query.buy_now and (query.precio_min is not None or query.precio_max is not None):
             long_ranges.append({
                 "From": str(int(query.precio_min or 0)),
                 "Name": "MinimumBidAmount",
@@ -248,11 +250,6 @@ class IAAIScraper(BaseScraper):
             finally:
                 await context.close()
                 await browser.close()
-
-    async def _save_storage_state(self, context) -> None:
-        self.storage_path.parent.mkdir(parents=True, exist_ok=True)
-        await context.storage_state(path=self.storage_path)
-        logger.info("[%s] Sesión guardada en %s", self.name, self.storage_path)
 
     @staticmethod
     async def _is_logged_in(page) -> bool:

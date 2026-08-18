@@ -51,6 +51,38 @@ async def main() -> int:
                 print("\n⚠️ La herramienta reportó error.", file=sys.stderr)
                 return 1
 
+            # Pruebas de filtros guardados
+            print("\n--- Filtros guardados ---")
+            save_res = await session.call_tool(
+                "save_filter",
+                {
+                    "nombre": "Test Filter",
+                    "marca": "Toyota",
+                    "modelo": "Corolla",
+                    "anio_min": 2015,
+                    "anio_max": 2018,
+                },
+            )
+            print(save_res.content[0].text)
+            if save_res.is_error:
+                print("\n⚠️ save_filter reportó error.", file=sys.stderr)
+                return 1
+            filter_id = save_res.content[0].text.split("`")[1]
+
+            list_res = await session.call_tool("list_filters", {})
+            print(list_res.content[0].text)
+            if list_res.is_error:
+                print("\n⚠️ list_filters reportó error.", file=sys.stderr)
+                return 1
+
+            del_res = await session.call_tool(
+                "delete_filter", {"filter_id": filter_id}
+            )
+            print(del_res.content[0].text)
+            if del_res.is_error:
+                print("\n⚠️ delete_filter reportó error.", file=sys.stderr)
+                return 1
+
     print("\n✅ MCP funciona correctamente.")
     return 0
 
