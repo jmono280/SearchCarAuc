@@ -13,6 +13,7 @@ services:
     environment:
       # Configuración general
       - APP_PORT=${APP_PORT:-8000}
+      - SCRAPER_SESSION_DIR=/app/data
       - request_timeout=60
       - FORCE_PLAYWRIGHT=true
 

@@ -55,8 +55,10 @@ RUN playwright install chromium \
 # Copia el código fuente
 COPY . .
 
-# Crea directorio para persistir la sesión de Playwright entre búsquedas
-RUN mkdir -p /app/data
+# Crea directorio para persistir la sesión de Playwright entre búsquedas.
+# Se deja con permisos amplios para que funcione aunque el contenedor corra
+# como un usuario no-root (como hace Coolify por defecto en algunos casos).
+RUN mkdir -p /app/data && chmod 777 /app/data
 
 # Puerto expuesto por Uvicorn (se puede sobrescribir con APP_PORT)
 EXPOSE ${APP_PORT}
@@ -65,5 +67,5 @@ EXPOSE ${APP_PORT}
 HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
     CMD sh -c "curl -f http://localhost:${APP_PORT:-8000}/ || exit 1"
 
-# Comando de arranque: lee APP_PORT desde el entorno
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${APP_PORT:-8000}"]
+# Comando de arranque: asegura que /app/data exista y sea escribible, luego levanta Uvicorn
+CMD ["sh", "-c", "mkdir -p /app/data && chmod 777 /app/data && uvicorn app.main:app --host 0.0.0.0 --port ${APP_PORT:-8000}"]

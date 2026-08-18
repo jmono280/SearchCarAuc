@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -10,9 +11,15 @@ from typing import Any
 from app.models.search import SearchQuery
 from app.models.vehicle import Vehicle
 
+logger = logging.getLogger(__name__)
+
 # Directorio base para persistir sesiones. Puede sobreescribirse con la
-# variable de entorno SCRAPER_SESSION_DIR (útil en desarrollo local).
-_DEFAULT_SESSION_DIR = Path(os.environ.get("SCRAPER_SESSION_DIR", "/app/data"))
+# variable de entorno SCRAPER_SESSION_DIR.
+# - En local (fuera de Docker) usa ./data por defecto.
+# - En Docker el compose sobreescribe esto a /app/data.
+_DEFAULT_SESSION_DIR = Path(
+    os.environ.get("SCRAPER_SESSION_DIR", "./data")
+)
 
 # Headers de un navegador real para reducir el riesgo de bloqueo anti-bot.
 DEFAULT_HEADERS: dict[str, str] = {
@@ -81,6 +88,24 @@ class BaseScraper(ABC):
             True si la autenticación fue exitosa o no era necesaria.
         """
         return True
+
+    async def _save_storage_state(self, context) -> None:
+        """Guarda las cookies/sesión de Playwright para reutilizarlas luego.
+
+        El error de permisos se registra como warning sin interrumpir el flujo.
+        """
+        try:
+            self.storage_path.parent.mkdir(parents=True, exist_ok=True)
+            await context.storage_state(path=self.storage_path)
+            logger.info("[%s] Sesión guardada en %s", self.name, self.storage_path)
+        except PermissionError as exc:
+            logger.warning(
+                "[%s] No se pudo guardar la sesión en %s: %s. "
+                "Continuando sin persistencia de sesión.",
+                self.name,
+                self.storage_path,
+                exc,
+            )
 
     @abstractmethod
     async def scratch(self, query: SearchQuery) -> list[Vehicle]:
