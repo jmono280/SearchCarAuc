@@ -54,6 +54,16 @@ class SearchQuery(BaseModel):
         ge=0,
         description="Precio máximo (USD). Solo aplica cuando buy_now=True",
     )
+    odometro_min: int | None = Field(
+        default=None,
+        ge=0,
+        description="Odómetro mínimo en millas",
+    )
+    odometro_max: int | None = Field(
+        default=None,
+        ge=0,
+        description="Odómetro máximo en millas",
+    )
     zip: str | None = Field(
         default=None,
         min_length=5,
@@ -96,6 +106,8 @@ class SearchQuery(BaseModel):
             raise ValueError("anio_min no puede ser mayor que anio_max")
         if self.precio_min is not None and self.precio_max is not None and self.precio_min > self.precio_max:
             raise ValueError("precio_min no puede ser mayor que precio_max")
+        if self.odometro_min is not None and self.odometro_max is not None and self.odometro_min > self.odometro_max:
+            raise ValueError("odometro_min no puede ser mayor que odometro_max")
         if (self.zip is None) != (self.radio_millas is None):
             raise ValueError("zip y radio_millas deben venir juntos o ninguno")
         return self

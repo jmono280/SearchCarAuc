@@ -58,6 +58,8 @@ function buildPayload() {
     buy_now: buyNow,
     precio_min: buyNow ? numOrNull('precio_min') : null,
     precio_max: buyNow ? numOrNull('precio_max') : null,
+    odometro_min: numOrNull('odometro_min'),
+    odometro_max: numOrNull('odometro_max'),
     zip: strOrNull('zip'),
     radio_millas: numOrNull('radio_millas'),
     page_size: numOrNull('page_size') || 50,
@@ -111,6 +113,9 @@ function renderActiveFilters(payload) {
         setField('anio', null);
         setField('anio_min', null);
         setField('anio_max', null);
+      } else if (key === 'odometro_range') {
+        setField('odometro_min', null);
+        setField('odometro_max', null);
       } else {
         setField(key, null);
       }
@@ -133,6 +138,12 @@ function renderActiveFilters(payload) {
     const min = payload.anio_min ?? '';
     const max = payload.anio_max ?? '';
     chips.push(addChip(`Año: ${min}-${max}`, 'anio_range'));
+  }
+
+  if (payload.odometro_min !== null || payload.odometro_max !== null) {
+    const min = payload.odometro_min ?? 0;
+    const max = payload.odometro_max ?? '∞';
+    chips.push(addChip(`Odómetro: ${min.toLocaleString()}-${max.toLocaleString()} mi`, 'odometro_range'));
   }
 
   if (payload.buy_now) {
@@ -213,6 +224,8 @@ function loadFilterIntoForm(filt) {
   updatePriceFields();
   setField('precio_min', q.precio_min);
   setField('precio_max', q.precio_max);
+  setField('odometro_min', q.odometro_min);
+  setField('odometro_max', q.odometro_max);
   setField('zip', q.zip);
   setField('radio_millas', q.radio_millas);
   setField('page_size', q.page_size);

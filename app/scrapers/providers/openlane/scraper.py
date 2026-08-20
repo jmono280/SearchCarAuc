@@ -218,6 +218,11 @@ class OpenLaneScraper(BaseScraper):
                 params.setdefault("min_price", str(int(query.precio_min)))
             if query.precio_max is not None:
                 params.setdefault("max_price", str(int(query.precio_max)))
+        # OpenLane parece ignorar max_mileage si no se envía min_mileage.
+        # Siempre enviamos ambos para que el rango se aplique correctamente.
+        if query.odometro_min is not None or query.odometro_max is not None:
+            params.setdefault("min_mileage", str(int(query.odometro_min or 0)))
+            params.setdefault("max_mileage", str(int(query.odometro_max or 999_999)))
         if query.zip:
             params.setdefault("zip", query.zip)
             params.setdefault("radius", str(query.radio_millas or 100))

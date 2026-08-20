@@ -140,6 +140,13 @@ class IAAIScraper(BaseScraper):
             })
             facets.append({"Group": "AuctionType", "Value": "Buy Now"})
 
+        if query.odometro_min is not None or query.odometro_max is not None:
+            long_ranges.append({
+                "From": str(int(query.odometro_min or 0)),
+                "Name": "Odometer",
+                "To": str(int(query.odometro_max or 999_999)),
+            })
+
         base_query = {
             "Searches": [
                 {"FullSearch": query.to_full_search(), "Facets": facets, "LongRanges": long_ranges}

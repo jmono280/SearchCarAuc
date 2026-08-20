@@ -65,6 +65,14 @@ _SEARCH_VEHICLE_SCHEMA: dict[str, Any] = {
             "description": "True para filtrar solo vehículos con precio Buy Now/Comprar ahora y habilitar precio_min/precio_max.",
             "default": False,
         },
+        "odometro_min": {
+            "type": "integer",
+            "description": "Odómetro mínimo en millas.",
+        },
+        "odometro_max": {
+            "type": "integer",
+            "description": "Odómetro máximo en millas.",
+        },
         "page_size": {
             "type": "integer",
             "description": "Cantidad de resultados por página (máximo 100).",
